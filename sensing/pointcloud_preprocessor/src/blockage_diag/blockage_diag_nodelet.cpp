@@ -16,6 +16,8 @@
 
 #include "autoware_point_types/types.hpp"
 
+//#include <pcl/>
+
 #include <boost/thread/detail/platform_time.hpp>
 
 #include <algorithm>
@@ -108,11 +110,78 @@ void BlockageDiagComponent::filter(
   const PointCloud2ConstPtr & input, [[maybe_unused]] const IndicesPtr & indices,
   PointCloud2 & output)
 {
+  float aspects = 100.0;
+  //  float angle_width=0.0;
   std::scoped_lock lock(mutex_);
-  uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
+  float pandar40p_horizontal_resolution = 0.2;  //[deg/between ray and ray]10hz
+  float pandarqt_horizontal_resolution = 0.6;
+
+  uint horizontal_bins;
+  uint16_t coefficient=0;
+  if (lidar_model_ == "Pandar40P") {
+    horizontal_bins = static_cast<uint16_t>(
+      (angle_range_deg_[1] - angle_range_deg_[0]) / pandar40p_horizontal_resolution);
+    coefficient =327;
+  } if(lidar_model_ == "PandarQT") {
+    horizontal_bins = static_cast<uint16_t>(
+      (angle_range_deg_[1] - angle_range_deg_[0]) / pandarqt_horizontal_resolution);
+    uint16_t coefficient=2184;
+  }
+
+  //    static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]) * 2.5);  // deg(e.g180個)
   uint vertical_bins = vertical_bins_;
   pcl::PointCloud<PointXYZIRADRT>::Ptr pcl_input(new pcl::PointCloud<PointXYZIRADRT>);
   pcl::fromROSMsg(*input, *pcl_input);
+
+  // 多分すでにsortされてる
+  //  std::sort(
+  //    pcl_input->begin(), pcl_input->end(),
+  //    [](const PointXYZIRADRT a, const PointXYZIRADRT b) { return a.azimuth > b.azimuth; });
+
+  std::vector<pcl::PointCloud<PointXYZIRADRT>> each_ring_pointcloud(vertical_bins_);
+  for (const auto p : *pcl_input) {
+    each_ring_pointcloud.at(p.ring).push_back(p);
+  }
+
+  //  for ( const auto each_ring:each_ring_pointcloud) {
+  //    RCLCPP_WARN(get_logger(),"ring id is %lu size is %lu",each_ring_pointcloud.,each_ring.size())
+  //
+  //  }
+  RCLCPP_WARN(
+    get_logger(), "Num of ring0:%lu,ring1:%lu,ring2:%lu,ring3:%lu",
+    each_ring_pointcloud.at(0).size(), each_ring_pointcloud.at(1).size(),
+    each_ring_pointcloud.at(2).size(), each_ring_pointcloud.at(3).size());
+
+  cv::Mat my_lidar_depth_map(cv::Size(horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
+
+
+  for (auto ite = each_ring_pointcloud.begin(); ite != each_ring_pointcloud.end(); ++ite) {
+    size_t ring_id = std::distance(each_ring_pointcloud.begin(), ite);
+    RCLCPP_WARN(
+      get_logger(), "each_ring_pointcloud.size is %lu,ring_num is %lu,cv::Matcols is%d,cv::Mat rows is%d,",
+      each_ring_pointcloud.at(ring_id).size(), ring_id,my_lidar_depth_map.cols,my_lidar_depth_map.rows);
+
+    for (auto scan_ite = each_ring_pointcloud.at(ring_id).begin();
+         scan_ite != each_ring_pointcloud.at(ring_id).end(); ++scan_ite) {
+      size_t point_id = std::distance(each_ring_pointcloud.at(ring_id).begin(), scan_ite);
+      my_lidar_depth_map.at<uint16_t>(ring_id, point_id) = static_cast<uint16_t>(
+        coefficient * each_ring_pointcloud.at(ring_id).points.at(point_id).distance);
+    }
+
+    //    size_t ring_index = std::distance()
+    //    for (pcl::PointCloud<PointXYZIRADRT>::const_iterator ite = each_ring.begin();
+    //    ite!=each_ring.end() ; ++ite) {
+    //      size_t index = std::distance(each_ring.begin(),ite);
+    //      my_lidar_depth_map.at<CV_16UC1>(each_ring.,)
+    //    }
+  }
+
+  for (const auto each_ring : each_ring_pointcloud) {
+  }
+
+  //  my_lidar_depth_map.at<uint16_t>()
+
+  ////Here
   cv::Mat lidar_depth_map(cv::Size(horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map_8u(cv::Size(horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   if (pcl_input->points.empty()) {
@@ -129,18 +198,28 @@ void BlockageDiagComponent::filter(
     sky_blockage_range_deg_[0] = angle_range_deg_[0];
     sky_blockage_range_deg_[1] = angle_range_deg_[1];
   } else {
+    //    std::sort(pcl_input->points.begin(), pcl_input->points.end())
+
     for (const auto & p : pcl_input->points) {
-      if ((p.azimuth / 100.0 > angle_range_deg_[0]) && (p.azimuth / 100.0 < angle_range_deg_[1])) {
+      //      if(((p.azimuth-angle_range_deg_[0])>0)&&(p.azimuth-angle_range_deg_[1]<angle_width) )
+      if (
+        (p.azimuth / 100.0 > angle_range_deg_[0]) &&
+        (p.azimuth / 100.0 < angle_range_deg_[1])) {  // angle is valid
+        // 40*180pixels
         if (lidar_model_ == "Pandar40P") {
           lidar_depth_map.at<uint16_t>(
             p.ring, static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) +=
-            static_cast<uint16_t>(6250.0 / p.distance);  // make image clearly
+            static_cast<uint16_t>(
+              6250.0 / p.distance);  // 6250のときにoverflowしてたのがスムーズでない原因？
+                                     // //遠いところで1以上になるように係数設定(nonlinearに)
+                                     // 0~30[m]をuint8_tに変換する感じ.(最初は線形で)
+
           lidar_depth_map_8u.at<uint8_t>(
             p.ring, static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) = 255;
         } else if (lidar_model_ == "PandarQT") {
           lidar_depth_map.at<uint16_t>(
             vertical_bins - p.ring - 1,
-            static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) +=
+            static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) =
             static_cast<uint16_t>(6250.0 / p.distance);
           lidar_depth_map_8u.at<uint8_t>(
             vertical_bins - p.ring - 1,
@@ -148,7 +227,10 @@ void BlockageDiagComponent::filter(
         }
       }
     }
-    lidar_depth_map.convertTo(lidar_depth_map, CV_8UC1, 1.0 / 100.0);
+    //    lidar_depth_map.convertTo(
+    //      lidar_depth_map, CV_8UC1,
+    //      1.0 / 100.0);  // 100pixelのsumを取ったのでdivided100？スムーズでない原因?
+    my_lidar_depth_map.convertTo(my_lidar_depth_map, CV_8UC1,1.0/100.0);
     cv::Mat no_return_mask;
     cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
     cv::Mat erosion_dst;
@@ -196,7 +278,8 @@ void BlockageDiagComponent::filter(
     }
 
     cv::Mat lidar_depth_colorized;
-    cv::applyColorMap(lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
+    //    cv::applyColorMap(lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
+    cv::applyColorMap(my_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
     sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
       cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", lidar_depth_colorized).toImageMsg();
     lidar_depth_msg->header = input->header;

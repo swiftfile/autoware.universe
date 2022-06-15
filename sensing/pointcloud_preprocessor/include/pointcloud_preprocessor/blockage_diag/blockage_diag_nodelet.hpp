@@ -17,6 +17,7 @@
 
 #include "pointcloud_preprocessor/filter.hpp"
 
+//#include <autoware_point_types/types.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <image_transport/image_transport.hpp>
 #include <opencv2/highgui/highgui.hpp>
