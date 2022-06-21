@@ -111,8 +111,24 @@ void BlockageDiagComponent::filter(
   std::scoped_lock lock(mutex_);
   uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
   uint vertical_bins = vertical_bins_;
+  int ideal_horizontal_bins;
+  float distance_coeffients;
+  float horizontal_resolution_;
+  if (lidar_model_ == "Pandar40P") {
+    distance_coeffients = 327.67f;
+    horizontal_resolution_ = 0.4f;
+  } else if (lidar_model_ == "PandarQT") {
+    distance_coeffients = 3276.75f;
+    horizontal_resolution_ = 0.6f;
+  }
+  ideal_horizontal_bins =
+    static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]) / horizontal_resolution_);
   pcl::PointCloud<PointXYZIRADRT>::Ptr pcl_input(new pcl::PointCloud<PointXYZIRADRT>);
   pcl::fromROSMsg(*input, *pcl_input);
+  std::vector<float> horizontal_bin_reference(ideal_horizontal_bins);
+  std::vector<pcl::PointCloud<PointXYZIRADRT>> each_ring_pointcloud(vertical_bins);
+  cv::Mat full_lidar_depth_map(
+    cv::Size(ideal_horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map(cv::Size(horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map_8u(cv::Size(horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   if (pcl_input->points.empty()) {
@@ -129,26 +145,29 @@ void BlockageDiagComponent::filter(
     sky_blockage_range_deg_[0] = angle_range_deg_[0];
     sky_blockage_range_deg_[1] = angle_range_deg_[1];
   } else {
-    for (const auto & p : pcl_input->points) {
-      if ((p.azimuth / 100.0 > angle_range_deg_[0]) && (p.azimuth / 100.0 < angle_range_deg_[1])) {
-        if (lidar_model_ == "Pandar40P") {
-          lidar_depth_map.at<uint16_t>(
-            p.ring, static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) +=
-            static_cast<uint16_t>(6250.0 / p.distance);  // make image clearly
-          lidar_depth_map_8u.at<uint8_t>(
-            p.ring, static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) = 255;
-        } else if (lidar_model_ == "PandarQT") {
-          lidar_depth_map.at<uint16_t>(
-            vertical_bins - p.ring - 1,
-            static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) +=
-            static_cast<uint16_t>(6250.0 / p.distance);
-          lidar_depth_map_8u.at<uint8_t>(
-            vertical_bins - p.ring - 1,
-            static_cast<uint>((p.azimuth / 100.0 - angle_range_deg_[0]))) = 255;
+    for (int i = 0; i < ideal_horizontal_bins; ++i) {
+      horizontal_bin_reference.at(i) = angle_range_deg_[0] + i * horizontal_resolution_;
+    }
+    for (const auto point : pcl_input->points) {
+      each_ring_pointcloud.at(point.ring).push_back(point);
+    }
+    for (uint ring = 0; ring < vertical_bins; ring++) {
+      for (const auto p : each_ring_pointcloud.at(ring).points) {
+        for (int horizontal_bin = 0;
+             horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); ++horizontal_bin) {
+          if (
+            (p.azimuth / 100 >
+             (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
+            (p.azimuth / 100 <
+             (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
+            full_lidar_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
+              UINT16_MAX - distance_coeffients * p.distance;
+          }
         }
       }
     }
-    lidar_depth_map.convertTo(lidar_depth_map, CV_8UC1, 1.0 / 100.0);
+  }
+  full_lidar_depth_map.convertTo(full_lidar_depth_map, CV_8UC1, 1.0 / 300);
     cv::Mat no_return_mask;
     cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
     cv::Mat erosion_dst;
@@ -196,7 +215,7 @@ void BlockageDiagComponent::filter(
     }
 
     cv::Mat lidar_depth_colorized;
-    cv::applyColorMap(lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
+    cv::applyColorMap(full_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
     sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
       cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", lidar_depth_colorized).toImageMsg();
     lidar_depth_msg->header = input->header;
