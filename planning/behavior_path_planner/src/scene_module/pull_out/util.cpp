@@ -14,11 +14,10 @@
 
 #include "behavior_path_planner/scene_module/pull_out/util.hpp"
 
-#include "behavior_path_planner/path_shifter/path_shifter.hpp"
 #include "behavior_path_planner/path_utilities.hpp"
+#include "behavior_path_planner/scene_module/utils/path_shifter.hpp"
 #include "behavior_path_planner/util/create_vehicle_footprint.hpp"
 
-#include <lanelet2_extension/utility/query.hpp>
 #include <lanelet2_extension/utility/utilities.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tier4_autoware_utils/geometry/boost_geometry.hpp>
@@ -35,9 +34,7 @@
 #include <string>
 #include <vector>
 
-namespace behavior_path_planner
-{
-namespace pull_out_utils
+namespace behavior_path_planner::pull_out_utils
 {
 PathWithLaneId combineReferencePath(const PathWithLaneId path1, const PathWithLaneId path2)
 {
@@ -194,11 +191,11 @@ std::vector<PullOutPath> getPullOutPaths(
       continue;
     }
 
-    const auto pull_out_end_idx = tier4_autoware_utils::findNearestIndex(
+    const auto pull_out_end_idx = motion_utils::findNearestIndex(
       shifted_path.path.points, reference_path2.points.front().point.pose);
 
     const auto goal_idx =
-      tier4_autoware_utils::findNearestIndex(shifted_path.path.points, route_handler.getGoalPose());
+      motion_utils::findNearestIndex(shifted_path.path.points, route_handler.getGoalPose());
 
     if (pull_out_end_idx && goal_idx) {
       const auto distance_pull_out_end_to_goal = tier4_autoware_utils::calcDistance2d(
@@ -483,5 +480,4 @@ bool isObjectFront(const Pose & ego_pose, const Pose & obj_pose)
   return obj_from_ego.position.x > 0;
 }
 
-}  // namespace pull_out_utils
-}  // namespace behavior_path_planner
+}  // namespace behavior_path_planner::pull_out_utils
