@@ -19,6 +19,7 @@
 #include <boost/thread/detail/platform_time.hpp>
 
 #include <algorithm>
+#include <numeric>
 
 namespace pointcloud_preprocessor
 {
@@ -213,6 +214,27 @@ void BlockageDiagComponent::filter(
     sky_blockage_count_ = 0;
   }
 
+  /////////entropy
+  int zero_val_pixels = 0;
+  std::vector<uint> num_of_pixelvalue(UINT8_MAX + 1);
+  for (int ite_row = 0; ite_row < full_lidar_depth_map.rows; ite_row++) {
+    for (int ite_col = 0; ite_col < full_lidar_depth_map.cols; ite_col++) {
+      num_of_pixelvalue.at(full_lidar_depth_map.at<unsigned char>(ite_row, ite_col))++;
+    }
+  }
+  std::vector<double> probabilities(UINT8_MAX);
+  for (int i = 0; i < UINT8_MAX; i++) {
+    probabilities.at(i) =
+      (double)num_of_pixelvalue.at(i) / full_lidar_depth_map.rows / full_lidar_depth_map.cols;
+  }
+  double entropy = 0.0;
+  for (auto & prob : probabilities) {
+    if (prob != 0) {
+      entropy += prob * log2(prob);
+    }
+  }
+  RCLCPP_WARN(get_logger(), "entropy is %lf", entropy);
+  /////////entropy
 
   cv::Mat lidar_depth_colorized;
   cv::applyColorMap(full_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
