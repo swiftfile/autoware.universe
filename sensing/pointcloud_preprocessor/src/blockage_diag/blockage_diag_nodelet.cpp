@@ -154,7 +154,7 @@ void BlockageDiagComponent::filter(
     for (uint ring = 0; ring < vertical_bins; ring++) {
       for (const auto p : each_ring_pointcloud.at(ring).points) {
         for (int horizontal_bin = 0;
-             horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); ++horizontal_bin) {
+             horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); horizontal_bin++) {
           if (
             (p.azimuth / 100 >
              (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
@@ -168,67 +168,65 @@ void BlockageDiagComponent::filter(
     }
   }
   full_lidar_depth_map.convertTo(full_lidar_depth_map, CV_8UC1, 1.0 / 300);
-    cv::Mat no_return_mask;
-    cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
-    cv::Mat erosion_dst;
-    cv::Mat element = cv::getStructuringElement(
-      cv::MORPH_RECT, cv::Size(2 * erode_kernel_ + 1, 2 * erode_kernel_ + 1),
-      cv::Point(erode_kernel_, erode_kernel_));
-    cv::erode(no_return_mask, erosion_dst, element);
-    cv::dilate(erosion_dst, no_return_mask, element);
-    cv::Mat ground_no_return_mask;
-    cv::Mat sky_no_return_mask;
-    no_return_mask(cv::Rect(0, 0, horizontal_bins, horizontal_ring_id_)).copyTo(sky_no_return_mask);
-    no_return_mask(
-      cv::Rect(0, horizontal_ring_id_, horizontal_bins, vertical_bins - horizontal_ring_id_))
-      .copyTo(ground_no_return_mask);
-    ground_blockage_ratio_ =
-      static_cast<float>(cv::countNonZero(ground_no_return_mask)) /
-      static_cast<float>(horizontal_bins * (vertical_bins - horizontal_ring_id_));
-    sky_blockage_ratio_ = static_cast<float>(cv::countNonZero(sky_no_return_mask)) /
-                          static_cast<float>(horizontal_bins * horizontal_ring_id_);
+  cv::Mat no_return_mask;
+  cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
+  cv::Mat erosion_dst;
+  cv::Mat element = cv::getStructuringElement(
+    cv::MORPH_RECT, cv::Size(2 * erode_kernel_ + 1, 2 * erode_kernel_ + 1),
+    cv::Point(erode_kernel_, erode_kernel_));
+  cv::erode(no_return_mask, erosion_dst, element);
+  cv::dilate(erosion_dst, no_return_mask, element);
+  cv::Mat ground_no_return_mask;
+  cv::Mat sky_no_return_mask;
+  no_return_mask(cv::Rect(0, 0, horizontal_bins, horizontal_ring_id_)).copyTo(sky_no_return_mask);
+  no_return_mask(
+    cv::Rect(0, horizontal_ring_id_, horizontal_bins, vertical_bins - horizontal_ring_id_))
+    .copyTo(ground_no_return_mask);
+  ground_blockage_ratio_ =
+    static_cast<float>(cv::countNonZero(ground_no_return_mask)) /
+    static_cast<float>(horizontal_bins * (vertical_bins - horizontal_ring_id_));
+  sky_blockage_ratio_ = static_cast<float>(cv::countNonZero(sky_no_return_mask)) /
+                        static_cast<float>(horizontal_bins * horizontal_ring_id_);
 
-    if (ground_blockage_ratio_ > blockage_ratio_threshold_) {
-      cv::Rect ground_blockage_bb = cv::boundingRect(ground_no_return_mask);
-      ground_blockage_range_deg_[0] =
-        static_cast<float>(ground_blockage_bb.x) + angle_range_deg_[0];
-      ground_blockage_range_deg_[1] =
-        static_cast<float>(ground_blockage_bb.x + ground_blockage_bb.width) + angle_range_deg_[0];
+  if (ground_blockage_ratio_ > blockage_ratio_threshold_) {
+    cv::Rect ground_blockage_bb = cv::boundingRect(ground_no_return_mask);
+    ground_blockage_range_deg_[0] = static_cast<float>(ground_blockage_bb.x) + angle_range_deg_[0];
+    ground_blockage_range_deg_[1] =
+      static_cast<float>(ground_blockage_bb.x + ground_blockage_bb.width) + angle_range_deg_[0];
 
-      if (ground_blockage_count_ <= 2 * blockage_count_threshold_) {
-        ground_blockage_count_ += 1;
-      }
-    } else {
-      ground_blockage_count_ = 0;
+    if (ground_blockage_count_ <= 2 * blockage_count_threshold_) {
+      ground_blockage_count_ += 1;
     }
-
-    if (sky_blockage_ratio_ > blockage_ratio_threshold_) {
-      cv::Rect sky_blockage_bx = cv::boundingRect(sky_no_return_mask);
-      sky_blockage_range_deg_[0] = static_cast<float>(sky_blockage_bx.x) + angle_range_deg_[0];
-      sky_blockage_range_deg_[1] =
-        static_cast<float>(sky_blockage_bx.x + sky_blockage_bx.width) + angle_range_deg_[0];
-      if (sky_blockage_count_ <= 2 * blockage_count_threshold_) {
-        sky_blockage_count_ += 1;
-      }
-    } else {
-      sky_blockage_count_ = 0;
-    }
-
-    cv::Mat lidar_depth_colorized;
-    cv::applyColorMap(full_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
-    sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", lidar_depth_colorized).toImageMsg();
-    lidar_depth_msg->header = input->header;
-    lidar_depth_map_pub_.publish(lidar_depth_msg);
-
-    cv::Mat blockage_mask_colorized;
-    cv::applyColorMap(no_return_mask, blockage_mask_colorized, cv::COLORMAP_JET);
-    sensor_msgs::msg::Image::SharedPtr blockage_mask_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", blockage_mask_colorized).toImageMsg();
-    blockage_mask_msg->header = input->header;
-    blockage_mask_pub_.publish(blockage_mask_msg);
+  } else {
+    ground_blockage_count_ = 0;
   }
 
+  if (sky_blockage_ratio_ > blockage_ratio_threshold_) {
+    cv::Rect sky_blockage_bx = cv::boundingRect(sky_no_return_mask);
+    sky_blockage_range_deg_[0] = static_cast<float>(sky_blockage_bx.x) + angle_range_deg_[0];
+    sky_blockage_range_deg_[1] =
+      static_cast<float>(sky_blockage_bx.x + sky_blockage_bx.width) + angle_range_deg_[0];
+    if (sky_blockage_count_ <= 2 * blockage_count_threshold_) {
+      sky_blockage_count_ += 1;
+    }
+  } else {
+    sky_blockage_count_ = 0;
+  }
+
+
+  cv::Mat lidar_depth_colorized;
+  cv::applyColorMap(full_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
+  sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", lidar_depth_colorized).toImageMsg();
+  lidar_depth_msg->header = input->header;
+  lidar_depth_map_pub_.publish(lidar_depth_msg);  // fullsizeをpubしているところ
+
+  cv::Mat blockage_mask_colorized;
+  cv::applyColorMap(no_return_mask, blockage_mask_colorized, cv::COLORMAP_JET);
+  sensor_msgs::msg::Image::SharedPtr blockage_mask_msg =
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", blockage_mask_colorized).toImageMsg();
+  blockage_mask_msg->header = input->header;
+  blockage_mask_pub_.publish(blockage_mask_msg);
   tier4_debug_msgs::msg::Float32Stamped ground_blockage_ratio_msg;
   ground_blockage_ratio_msg.data = ground_blockage_ratio_;
   ground_blockage_ratio_msg.stamp = now();
