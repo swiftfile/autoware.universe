@@ -128,7 +128,7 @@ void BlockageDiagComponent::filter(
   pcl::fromROSMsg(*input, *pcl_input);
   std::vector<float> horizontal_bin_reference(ideal_horizontal_bins);
   std::vector<pcl::PointCloud<PointXYZIRADRT>> each_ring_pointcloud(vertical_bins);
-  cv::Mat full_lidar_depth_map(
+  cv::Mat full_size_depth_map(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map(cv::Size(horizontal_bins, vertical_bins), CV_16UC1, cv::Scalar(0));
   cv::Mat lidar_depth_map_8u(cv::Size(horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
@@ -161,14 +161,14 @@ void BlockageDiagComponent::filter(
              (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
             (p.azimuth / 100 <
              (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
-            full_lidar_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
+            full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
               UINT16_MAX - distance_coeffients * p.distance;
           }
         }
       }
     }
   }
-  full_lidar_depth_map.convertTo(full_lidar_depth_map, CV_8UC1, 1.0 / 300);
+  full_size_depth_map.convertTo(full_size_depth_map, CV_8UC1, 1.0 / 300);
   cv::Mat no_return_mask;
   cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
   cv::Mat erosion_dst;
@@ -216,16 +216,16 @@ void BlockageDiagComponent::filter(
 
   /////////entropy
   int zero_val_pixels = 0;
-  std::vector<uint> num_of_pixelvalue(UINT8_MAX + 1);
-  for (int ite_row = 0; ite_row < full_lidar_depth_map.rows; ite_row++) {
-    for (int ite_col = 0; ite_col < full_lidar_depth_map.cols; ite_col++) {
-      num_of_pixelvalue.at(full_lidar_depth_map.at<unsigned char>(ite_row, ite_col))++;
+  std::vector<uint> num_of_pixelvalue(full_size_depth_map.rows * full_size_depth_map.cols);
+  for (int ite_row = 0; ite_row < full_size_depth_map.rows; ite_row++) {
+    for (int ite_col = 0; ite_col < full_size_depth_map.cols; ite_col++) {
+      num_of_pixelvalue.at(full_size_depth_map.at<unsigned char>(ite_row, ite_col))++;
     }
   }
   std::vector<double> probabilities(UINT8_MAX);
   for (int i = 0; i < UINT8_MAX; i++) {
     probabilities.at(i) =
-      (double)num_of_pixelvalue.at(i) / full_lidar_depth_map.rows / full_lidar_depth_map.cols;
+      (double)num_of_pixelvalue.at(i) / full_size_depth_map.rows / full_size_depth_map.cols;
   }
   double entropy = 0.0;
   for (auto & prob : probabilities) {
@@ -236,10 +236,10 @@ void BlockageDiagComponent::filter(
   RCLCPP_WARN(get_logger(), "entropy is %lf", entropy);
   /////////entropy
 
-  cv::Mat lidar_depth_colorized;
-  cv::applyColorMap(full_lidar_depth_map, lidar_depth_colorized, cv::COLORMAP_JET);
+  cv::Mat colorized_full_size_depth_map;
+  cv::applyColorMap(full_size_depth_map, colorized_full_size_depth_map, cv::COLORMAP_JET);
   sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", lidar_depth_colorized).toImageMsg();
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", colorized_full_size_depth_map).toImageMsg();
   lidar_depth_msg->header = input->header;
   lidar_depth_map_pub_.publish(lidar_depth_msg);  // fullsizeをpubしているところ
 
