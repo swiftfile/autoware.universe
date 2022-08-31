@@ -149,21 +149,16 @@ void BlockageDiagComponent::filter(
     for (int i = 0; i < ideal_horizontal_bins; ++i) {
       horizontal_bin_reference.at(i) = angle_range_deg_[0] + i * horizontal_resolution_;
     }
-    for (const auto point : pcl_input->points) {
-      each_ring_pointcloud.at(point.ring).push_back(point);
-    }
-    for (uint ring = 0; ring < vertical_bins; ring++) {
-      for (const auto p : each_ring_pointcloud.at(ring).points) {
-        for (int horizontal_bin = 0;
-             horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); horizontal_bin++) {
-          if (
-            (p.azimuth / 100 >
-             (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
-            (p.azimuth / 100 <=
-             (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
-            full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
-              UINT16_MAX - distance_coeffients * p.distance;
-          }
+    for (const auto p : pcl_input->points) {
+      for (int horizontal_bin = 0;
+           horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); horizontal_bin++) {
+        if (
+          (p.azimuth / 100 >
+           (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
+          (p.azimuth / 100 <=
+           (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
+          full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
+            UINT16_MAX - distance_coeffients * p.distance;
         }
       }
     }
