@@ -159,7 +159,7 @@ void BlockageDiagComponent::filter(
           if (
             (p.azimuth / 100 >
              (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
-            (p.azimuth / 100 <
+            (p.azimuth / 100 <=
              (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
             full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
               UINT16_MAX - distance_coeffients * p.distance;
