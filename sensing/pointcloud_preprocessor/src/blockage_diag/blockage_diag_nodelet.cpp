@@ -157,8 +157,13 @@ void BlockageDiagComponent::filter(
            (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
           (p.azimuth / 100 <=
            (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
-          full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
-            UINT16_MAX - distance_coeffients * p.distance;
+          if (lidar_model_ == "Pandar40P") {
+            full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
+              UINT16_MAX - distance_coeffients * p.distance;
+          } else if (lidar_model_ == "PandarQT") {
+            full_size_depth_map.at<uint16_t>(vertical_bins - p.ring - 1, horizontal_bin) =
+              UINT16_MAX - distance_coeffients * p.distance;
+          }
         }
       }
     }
