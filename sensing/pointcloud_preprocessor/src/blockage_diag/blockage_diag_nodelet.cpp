@@ -51,6 +51,7 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     image_transport::create_publisher(this, "blockage_diag/debug/lidar_depth_map");
   blockage_mask_pub_ =
     image_transport::create_publisher(this, "blockage_diag/debug/blockage_mask_image");
+  entropy_msg_pub = image_transport::create_publisher(this, "blockage_diag/debug/entropy_image");
 
   ground_blockage_ratio_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/ground_blockage_ratio", rclcpp::SensorDataQoS());
@@ -168,7 +169,7 @@ void BlockageDiagComponent::filter(
       }
     }
   }
-  full_size_depth_map.convertTo(full_size_depth_map, CV_8UC1, 1.0 / 300);
+  full_size_depth_map.convertTo(lidar_depth_map_8u, CV_8UC1, 1.0 / 300);
   cv::Mat no_return_mask;
   cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
   cv::Mat erosion_dst;
@@ -215,31 +216,99 @@ void BlockageDiagComponent::filter(
   }
 
   /////////entropy
-  int zero_val_pixels = 0;
-  std::vector<uint> num_of_pixelvalue(full_size_depth_map.rows * full_size_depth_map.cols);
-  for (int ite_row = 0; ite_row < full_size_depth_map.rows; ite_row++) {
-    for (int ite_col = 0; ite_col < full_size_depth_map.cols; ite_col++) {
-      num_of_pixelvalue.at(full_size_depth_map.at<unsigned char>(ite_row, ite_col))++;
-    }
-  }
-  std::vector<double> probabilities(UINT8_MAX);
-  for (int i = 0; i < UINT8_MAX; i++) {
-    probabilities.at(i) =
-      (double)num_of_pixelvalue.at(i) / full_size_depth_map.rows / full_size_depth_map.cols;
-  }
-  double entropy = 0.0;
-  for (auto & prob : probabilities) {
-    if (prob != 0) {
-      entropy += prob * log2(prob);
-    }
-  }
-  RCLCPP_WARN(get_logger(), "entropy is %lf", entropy);
-  /////////entropy
+  cv::Mat entropy_img = lidar_depth_map_8u.clone();
+  std::vector<cv::Point> edge_points;
+  cv::Point p;
+  uint vertical_cut_num = 30;    // 縦方向の切る回数
+  uint horizontal_cut_num = 15;  // 横方向の切る回数
+  uint cut_width = entropy_img.cols / vertical_cut_num;
+  uint cut_height = entropy_img.rows / horizontal_cut_num;
 
+  std::vector<cv::Mat> rois;
+  for (int i = 0; i < horizontal_cut_num + 1; ++i) {
+    for (int j = 0; j < vertical_cut_num + 1; ++j) {
+      p = {j * cut_width, i * cut_height};
+      edge_points.emplace_back(p);
+      cv::Mat var_roi;
+      if (
+        ((entropy_img.cols - j * cut_width) < cut_width) &&
+        ((entropy_img.rows - i * cut_height) < cut_height)) {
+        std::cout << "Pt.d" << std::endl;
+        var_roi = entropy_img(
+          cv::Rect(p.x, p.y, entropy_img.cols - j * cut_width, entropy_img.rows - i * cut_height));
+      } else if ((entropy_img.cols - j * cut_width) < cut_width) {
+        std::cout << "Pt.c" << std::endl;
+        var_roi = entropy_img(cv::Rect(p.x, p.y, entropy_img.cols - j * cut_width, cut_height));
+      } else if ((entropy_img.rows - i * cut_height) < cut_height) {
+        std::cout << "Pt.b" << std::endl;
+        var_roi = entropy_img(cv::Rect(p.x, p.y, cut_width, entropy_img.rows - i * cut_height));
+      } else {
+        std::cout << "Pt.a" << std::endl;
+        var_roi = entropy_img(cv::Rect(p.x, p.y, cut_width, cut_height));
+      }
+      rois.emplace_back(var_roi);
+    }
+  }
+  // calc binary binary_entropy
+  std::vector<double> binary_entropies;
+  for (int i = 0; i < rois.size(); i++) {
+    int num_of_zero_pixel = 0;
+    int num_of_non_zero_pixels = 0;
+    double prob_of_zero = 0.0;
+    double prob_of_nonzero = 0.0;
+    double binary_entropy = 0.0;
+    for (int ite_row = 0; ite_row < rois.at(i).rows; ite_row++) {
+      for (int ite_col = 0; ite_col < rois.at(i).cols; ite_col++) {
+        if (rois.at(i).at<unsigned short>(ite_row, ite_col) == 0) {
+          num_of_zero_pixel++;
+        } else {
+          num_of_non_zero_pixels++;
+        }
+      }
+    }
+    std::cout << "rows " << rois.at(i).rows << std::endl;
+    std::cout << "cols " << rois.at(i).cols << std::endl;
+    std::cout << "ROI" << i << " zero num is " << num_of_zero_pixel << "non zero num is "
+              << num_of_non_zero_pixels << std::endl;
+    prob_of_zero = (double)num_of_zero_pixel / rois.at(i).cols / rois.at(i).rows;
+    prob_of_nonzero = (double)num_of_non_zero_pixels / rois.at(i).cols / rois.at(i).rows;
+    std::cout << "ROI" << i << " prob zero  is " << prob_of_zero << "prob non zero is "
+              << prob_of_nonzero << std::endl;
+    if ((prob_of_nonzero != 0) & (prob_of_zero != 0)) {
+      binary_entropy =
+        (prob_of_zero * log2(prob_of_zero) + prob_of_nonzero * log2(prob_of_nonzero)) * (-1);
+    } else {
+      binary_entropy = 0.0;
+    }
+    binary_entropies.emplace_back(binary_entropy);
+  }
+  //
+  cv::Mat result_color_img = entropy_img.clone();
+  cv::applyColorMap(result_color_img, result_color_img, cv::COLORMAP_JET);
+
+  cv::Mat result_bin_img(
+    cv::Size(entropy_img.cols, entropy_img.rows), CV_8U, cv::Scalar(255));  // for mask？
+  std::cout << "edge_points.size() is" << edge_points.size() << std::endl;
+  std::cout << "binary_entropies.size() is" << binary_entropies.size() << std::endl;
+  for (int it = 0; it < binary_entropies.size(); ++it) {
+    if (binary_entropies.at(it) > 0.93) {
+      cv::rectangle(
+        result_color_img, edge_points.at(it),
+        cv::Point(edge_points.at(it).x + cut_width, edge_points.at(it).y + cut_height),
+        cv::Scalar(0, 0, 255), -1);
+    }
+  }
+  sensor_msgs::msg::Image::SharedPtr entropy_msg =
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", result_color_img).toImageMsg();
+  entropy_msg->header = input->header;
+  entropy_msg_pub.publish(entropy_msg);
+  /////////entropy
   cv::Mat colorized_full_size_depth_map;
-  cv::applyColorMap(full_size_depth_map, colorized_full_size_depth_map, cv::COLORMAP_JET);
+  //  cv::applyColorMap(full_size_depth_map, colorized_full_size_depth_map, cv::COLORMAP_JET);
+  colorized_full_size_depth_map = full_size_depth_map.clone();
   sensor_msgs::msg::Image::SharedPtr lidar_depth_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", colorized_full_size_depth_map).toImageMsg();
+    cv_bridge::CvImage(std_msgs::msg::Header(), "mono16", colorized_full_size_depth_map)
+      .toImageMsg();
   lidar_depth_msg->header = input->header;
   lidar_depth_map_pub_.publish(lidar_depth_msg);  // fullsizeをpubしているところ
 
@@ -262,6 +331,7 @@ void BlockageDiagComponent::filter(
   pcl::toROSMsg(*pcl_input, output);
   output.header = input->header;
 }
+
 rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
   const std::vector<rclcpp::Parameter> & p)
 {
