@@ -216,13 +216,16 @@ void BlockageDiagComponent::filter(
   }
 
   /////////entropy
-  cv::Mat entropy_img = lidar_depth_map_8u.clone();
+  cv::Mat ground_entropy_img;
+  lidar_depth_map_8u(
+    cv::Rect(0, horizontal_ring_id_, horizontal_bins, vertical_bins - horizontal_ring_id_))
+    .copyTo(ground_entropy_img);
   std::vector<cv::Point> edge_points;
   cv::Point p;
-  uint vertical_cut_num = 30;    // 縦方向の切る回数
-  uint horizontal_cut_num = 15;  // 横方向の切る回数
-  uint cut_width = entropy_img.cols / vertical_cut_num;
-  uint cut_height = entropy_img.rows / horizontal_cut_num;
+  int vertical_cut_num = 30;    // 縦方向の切る回数
+  int horizontal_cut_num = 15;  // 横方向の切る回数
+  int cut_width = ground_entropy_img.cols / vertical_cut_num;
+  int cut_height = ground_entropy_img.rows / horizontal_cut_num;
 
   std::vector<cv::Mat> rois;
   for (int i = 0; i < horizontal_cut_num + 1; ++i) {
@@ -231,27 +234,30 @@ void BlockageDiagComponent::filter(
       edge_points.emplace_back(p);
       cv::Mat var_roi;
       if (
-        ((entropy_img.cols - j * cut_width) < cut_width) &&
-        ((entropy_img.rows - i * cut_height) < cut_height)) {
+        ((ground_entropy_img.cols - j * cut_width) < cut_width) &&
+        ((ground_entropy_img.rows - i * cut_height) < cut_height)) {
         std::cout << "Pt.d" << std::endl;
-        var_roi = entropy_img(
-          cv::Rect(p.x, p.y, entropy_img.cols - j * cut_width, entropy_img.rows - i * cut_height));
-      } else if ((entropy_img.cols - j * cut_width) < cut_width) {
+        var_roi = ground_entropy_img(cv::Rect(
+          p.x, p.y, ground_entropy_img.cols - j * cut_width,
+          ground_entropy_img.rows - i * cut_height));
+      } else if ((ground_entropy_img.cols - j * cut_width) < cut_width) {
         std::cout << "Pt.c" << std::endl;
-        var_roi = entropy_img(cv::Rect(p.x, p.y, entropy_img.cols - j * cut_width, cut_height));
-      } else if ((entropy_img.rows - i * cut_height) < cut_height) {
+        var_roi = ground_entropy_img(
+          cv::Rect(p.x, p.y, ground_entropy_img.cols - j * cut_width, cut_height));
+      } else if ((ground_entropy_img.rows - i * cut_height) < cut_height) {
         std::cout << "Pt.b" << std::endl;
-        var_roi = entropy_img(cv::Rect(p.x, p.y, cut_width, entropy_img.rows - i * cut_height));
+        var_roi = ground_entropy_img(
+          cv::Rect(p.x, p.y, cut_width, ground_entropy_img.rows - i * cut_height));
       } else {
         std::cout << "Pt.a" << std::endl;
-        var_roi = entropy_img(cv::Rect(p.x, p.y, cut_width, cut_height));
+        var_roi = ground_entropy_img(cv::Rect(p.x, p.y, cut_width, cut_height));
       }
       rois.emplace_back(var_roi);
     }
   }
   // calc binary binary_entropy
   std::vector<double> binary_entropies;
-  for (int i = 0; i < rois.size(); i++) {
+  for (int i = 0; i < static_cast<int>(rois.size()); i++) {
     int num_of_zero_pixel = 0;
     int num_of_non_zero_pixels = 0;
     double prob_of_zero = 0.0;
@@ -283,23 +289,25 @@ void BlockageDiagComponent::filter(
     binary_entropies.emplace_back(binary_entropy);
   }
   //
-  cv::Mat result_color_img = entropy_img.clone();
+  cv::Mat result_color_img = lidar_depth_map_8u.clone();
   cv::applyColorMap(result_color_img, result_color_img, cv::COLORMAP_JET);
 
   cv::Mat result_bin_img(
-    cv::Size(entropy_img.cols, entropy_img.rows), CV_8U, cv::Scalar(255));  // for mask？
+    cv::Size(lidar_depth_map_8u.cols, lidar_depth_map_8u.rows), CV_8UC3, cv::Scalar(255, 0, 0));
   std::cout << "edge_points.size() is" << edge_points.size() << std::endl;
   std::cout << "binary_entropies.size() is" << binary_entropies.size() << std::endl;
-  for (int it = 0; it < binary_entropies.size(); ++it) {
+  for (int it = 0; it < static_cast<int>(binary_entropies.size()); ++it) {
     if (binary_entropies.at(it) > 0.93) {
       cv::rectangle(
-        result_color_img, edge_points.at(it),
-        cv::Point(edge_points.at(it).x + cut_width, edge_points.at(it).y + cut_height),
+        result_bin_img, cv::Point(edge_points.at(it).x, horizontal_ring_id_ + edge_points.at(it).y),
+        cv::Point(
+          edge_points.at(it).x + cut_width,
+          horizontal_ring_id_ + edge_points.at(it).y + cut_height),
         cv::Scalar(0, 0, 255), -1);
     }
   }
   sensor_msgs::msg::Image::SharedPtr entropy_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", result_color_img).toImageMsg();
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", result_bin_img).toImageMsg();
   entropy_msg->header = input->header;
   entropy_msg_pub.publish(entropy_msg);
   /////////entropy
