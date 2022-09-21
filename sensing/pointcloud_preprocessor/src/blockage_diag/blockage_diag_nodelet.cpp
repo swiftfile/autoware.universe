@@ -57,6 +57,8 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     "blockage_diag/debug/ground_blockage_ratio", rclcpp::SensorDataQoS());
   sky_blockage_ratio_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/sky_blockage_ratio", rclcpp::SensorDataQoS());
+  processing_time_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
+    "blockage_diag/debug/processing_time", rclcpp::SensorDataQoS());
 
   using std::placeholders::_1;
   set_param_res_ = this->add_on_set_parameters_callback(
@@ -110,6 +112,7 @@ void BlockageDiagComponent::filter(
   const PointCloud2ConstPtr & input, [[maybe_unused]] const IndicesPtr & indices,
   PointCloud2 & output)
 {
+  auto start = std::chrono::system_clock::now();
   std::scoped_lock lock(mutex_);
   uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
   uint vertical_bins = vertical_bins_;
@@ -330,6 +333,12 @@ void BlockageDiagComponent::filter(
 
   pcl::toROSMsg(*pcl_input, output);
   output.header = input->header;
+  auto end = std::chrono::system_clock::now();
+  tier4_debug_msgs::msg::Float32Stamped processing_time_msg;
+  processing_time_msg.data =
+    std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  processing_time_msg.stamp = now();
+  processing_time_pub_->publish(processing_time_msg);
 }
 
 rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
