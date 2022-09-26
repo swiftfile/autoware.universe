@@ -49,7 +49,7 @@ protected:
   /** \brief Parameter service callback */
   rcl_interfaces::msg::SetParametersResult paramCallback(const std::vector<rclcpp::Parameter> & p);
   image_transport::Publisher lidar_depth_map_pub_;
-  image_transport::Publisher entropy_msg_pub;
+  image_transport::Publisher img_proc_result_pub;
   image_transport::Publisher blockage_mask_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr ground_blockage_ratio_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr sky_blockage_ratio_pub_;
