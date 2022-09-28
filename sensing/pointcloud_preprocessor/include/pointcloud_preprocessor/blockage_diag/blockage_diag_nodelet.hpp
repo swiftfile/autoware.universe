@@ -49,15 +49,12 @@ protected:
   /** \brief Parameter service callback */
   rcl_interfaces::msg::SetParametersResult paramCallback(const std::vector<rclcpp::Parameter> & p);
   image_transport::Publisher lidar_depth_map_pub_;
+  image_transport::Publisher img_proc_result_pub;
   image_transport::Publisher blockage_mask_pub_;
-  image_transport::Publisher single_frame_dust_mask_pub;
-  image_transport::Publisher multi_frame_dust_mask_pub;
-  image_transport::Publisher blockage_dust_merged_pub;
+  image_transport::Publisher dust_blockage_pub;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr ground_blockage_ratio_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr sky_blockage_ratio_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr processing_time_pub_;
-  rclcpp::Publisher<tier4_debug_msgs::msg::StringStamped>::SharedPtr blockage_type_pub_;
-  rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr blockage_ratio_pub_;
 
 private:
   void onBlockageChecker(DiagnosticStatusWrapper & stat);
@@ -70,18 +67,13 @@ private:
   float sky_blockage_ratio_ = -1.0f;
   std::vector<float> ground_blockage_range_deg_ = {0.0f, 0.0f};
   std::vector<float> sky_blockage_range_deg_ = {0.0f, 0.0f};
-  int blockage_kernel_ = 10;
-  uint blockage_frame_count_ = 0;
+  int erode_kernel_ = 10;
   uint ground_blockage_count_ = 0;
   uint sky_blockage_count_ = 0;
   uint blockage_count_threshold_;
   std::string lidar_model_;
-  uint blockage_buffer_frames_ = 100;
-  uint blockage_buffering_interval_ = 1;
-  int dust_kernel_ = 2;
-  int dust_buffer_frames_ = 200;
-  int dust_buffering_interval_ = 1;
-  int dust_frame_count_ = 0;
+  uint buffering_frames_ = 100;
+  uint buffering_interval_ = 5;
 
 public:
   PCL_MAKE_ALIGNED_OPERATOR_NEW
