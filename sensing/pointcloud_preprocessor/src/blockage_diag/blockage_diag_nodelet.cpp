@@ -194,7 +194,7 @@ void BlockageDiagComponent::filter(
   static boost::circular_buffer<cv::Mat> no_return_mask_buffer(blockage_buffer_frames_);
   cv::Mat time_series_blockage_result(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
-  cv::Mat time_series_blockage_mask(
+  static cv::Mat time_series_blockage_mask(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat no_return_mask_binarized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
@@ -205,11 +205,13 @@ void BlockageDiagComponent::filter(
     no_return_mask_binarized = no_return_mask / 255;
     if (blockage_frame_count == blockage_buffering_interval_) {
       no_return_mask_buffer.push_back(no_return_mask_binarized);
+      time_series_blockage_mask += no_return_mask_binarized;  // 最初は足していく
       blockage_frame_count = 0;
+      if (no_return_mask_buffer.size() == blockage_buffer_frames_) {
+        time_series_blockage_mask -= *no_return_mask_buffer.begin();
+      }
     }
-    for (const auto & binary_mask : no_return_mask_buffer) {
-      time_series_blockage_mask += binary_mask;
-    }
+
     cv::inRange(
       time_series_blockage_mask, no_return_mask_buffer.size() - 1, no_return_mask_buffer.size(),
       time_series_blockage_result);
@@ -287,6 +289,7 @@ void BlockageDiagComponent::filter(
       binarized_sobel_mask_buffer.push_back(sobel_mask_binarized);  // ここコメントアウトで動く
       sobel_frame_count = 0;
     }
+
     for (const auto & binary_mask : binarized_sobel_mask_buffer) {
       time_series_sobel_mask += binary_mask;
     }
