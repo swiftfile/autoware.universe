@@ -74,7 +74,7 @@ private:
   uint blockage_count_threshold_;
   std::string lidar_model_;
   uint blockage_buffer_frames_ = 100;
-  uint sobel_frames_ = 30;
+  uint sobel_buffer_frames_ = 30;
   uint blockage_buffering_interval_ = 1;
   uint sobel_buffering_interval_ = 1;
 

@@ -198,7 +198,6 @@ void BlockageDiagComponent::filter(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat no_return_mask_binarized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
-
   static uint blockage_frame_count = 0;
   blockage_frame_count++;
   if (blockage_buffering_interval_ != 0) {
@@ -271,27 +270,26 @@ void BlockageDiagComponent::filter(
   cv::dilate(sobeled_img, morpho_img, sobel_element);
   cv::erode(morpho_img, morpho_img, sobel_element);
 
-  static boost::circular_buffer<cv::Mat> binarized_sobel_mask_buffer(sobel_frames_);
+  static boost::circular_buffer<cv::Mat> binarized_sobel_mask_buffer(sobel_buffer_frames_);
 
   sobeled_img = morpho_img.clone();
-  cv::Mat time_series_sobel_mask(
+  static cv::Mat time_series_sobel_mask(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat time_series_sobel_result(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat sobel_mask_binarized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
-
   static uint sobel_frame_count;
   sobel_frame_count++;
   if (sobel_buffering_interval_ != 0) {
     sobel_mask_binarized = sobeled_img / 255;
     if (sobel_frame_count == sobel_buffering_interval_) {
-      binarized_sobel_mask_buffer.push_back(sobel_mask_binarized);  // ここコメントアウトで動く
+      binarized_sobel_mask_buffer.push_back(sobel_mask_binarized);
+      time_series_sobel_mask += sobel_mask_binarized;
       sobel_frame_count = 0;
-    }
-
-    for (const auto & binary_mask : binarized_sobel_mask_buffer) {
-      time_series_sobel_mask += binary_mask;
+      if (binarized_sobel_mask_buffer.size() == sobel_buffer_frames_) {
+        time_series_sobel_mask -= *binarized_sobel_mask_buffer.begin();
+      }
     }
     cv::inRange(
       time_series_sobel_mask, binarized_sobel_mask_buffer.size() - 1,
