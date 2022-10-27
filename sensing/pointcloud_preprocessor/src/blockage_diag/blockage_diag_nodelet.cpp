@@ -17,6 +17,7 @@
 #include "autoware_point_types/types.hpp"
 
 #include <boost/circular_buffer.hpp>
+#include <boost/thread/detail/platform_time.hpp>
 
 #include <algorithm>
 
@@ -40,6 +41,8 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
       static_cast<uint>(declare_parameter("blockage_count_threshold", 50));
     buffering_frames_ = static_cast<uint>(declare_parameter("buffering_frames", 100));
     buffering_interval_ = static_cast<uint>(declare_parameter("buffering_interval", 5));
+    processing_time_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
+      "blockage_diag/debug/processing_time", rclcpp::SensorDataQoS());
   }
 
   updater_.setHardwareID("blockage_diag");
@@ -109,6 +112,7 @@ void BlockageDiagComponent::filter(
   const PointCloud2ConstPtr & input, [[maybe_unused]] const IndicesPtr & indices,
   PointCloud2 & output)
 {
+  auto start = std::chrono::system_clock::now();
   std::scoped_lock lock(mutex_);
   uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
   uint vertical_bins = vertical_bins_;
@@ -251,6 +255,13 @@ void BlockageDiagComponent::filter(
 
   pcl::toROSMsg(*pcl_input, output);
   output.header = input->header;
+
+  auto end = std::chrono::system_clock::now();
+  tier4_debug_msgs::msg::Float32Stamped processing_time_msg;
+  processing_time_msg.data =
+    std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  processing_time_msg.stamp = now();
+  processing_time_pub_->publish(processing_time_msg);
 }
 rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
   const std::vector<rclcpp::Parameter> & p)
