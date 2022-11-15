@@ -60,6 +60,11 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     "blockage_diag/debug/ground_blockage_ratio", rclcpp::SensorDataQoS());
   sky_blockage_ratio_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/sky_blockage_ratio", rclcpp::SensorDataQoS());
+  blockage_type_pub_ = create_publisher<tier4_debug_msgs::msg::StringStamped>(
+    "blockage_diag/debug/blockage_type", rclcpp::SensorDataQoS());
+  blockage_ratio_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
+    "blockage_diag/debug/blockage_ratio", rclcpp::SensorDataQoS());
+
   processing_time_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/processing_time", rclcpp::SensorDataQoS());
 
@@ -327,6 +332,30 @@ void BlockageDiagComponent::filter(
   sky_blockage_ratio_msg.data = sky_blockage_ratio_;
   sky_blockage_ratio_msg.stamp = now();
   sky_blockage_ratio_pub_->publish(sky_blockage_ratio_msg);
+  tier4_debug_msgs::msg::Float32Stamped blockage_ratio_msg;
+  tier4_debug_msgs::msg::StringStamped blockage_type_msg;
+  double blockage_ratio = static_cast<double>(cv::countNonZero(time_series_blockage_result)) /
+                          (time_series_blockage_result.cols * time_series_blockage_result.rows);
+  float dust_ratio = static_cast<double>(cv::countNonZero(single_dust_img)) /
+                     (single_dust_img.cols * single_dust_img.rows);
+
+  if (blockage_ratio == 0.0 && dust_ratio == 0.0) {
+    blockage_type_msg.data = "no blockage";
+    blockage_ratio_msg.data = 0.0;
+  } else {
+    if (blockage_ratio >= dust_ratio) {
+      blockage_type_msg.data = "blockage";
+      blockage_ratio_msg.data = blockage_ratio;
+    } else {
+      blockage_type_msg.data = "dust";
+      sky_blockage_ratio_msg.data =dust_ratio;
+    }
+  }
+
+  blockage_type_msg.stamp = now();
+  blockage_ratio_msg.stamp = now();
+  blockage_type_pub_->publish(blockage_type_msg);
+  blockage_ratio_pub_->publish(blockage_ratio_msg);
 
   pcl::toROSMsg(*pcl_input, output);
   output.header = input->header;
