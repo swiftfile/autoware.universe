@@ -192,8 +192,8 @@ void BlockageDiagComponent::filter(
   cv::inRange(lidar_depth_map_8u, 0, 1, no_return_mask);
   cv::Mat erosion_dst;
   cv::Mat element = cv::getStructuringElement(
-    cv::MORPH_RECT, cv::Size(2 * erode_kernel_ + 1, 2 * erode_kernel_ + 1),
-    cv::Point(erode_kernel_, erode_kernel_));
+    cv::MORPH_RECT, cv::Size(2 * blockage_kernel_ + 1, 2 * blockage_kernel_ + 1),
+    cv::Point(blockage_kernel_, blockage_kernel_));
   cv::erode(no_return_mask, erosion_dst, element);
   cv::dilate(erosion_dst, no_return_mask, element);
   static boost::circular_buffer<cv::Mat> no_return_mask_buffer(blockage_buffer_frames_);
@@ -204,13 +204,12 @@ void BlockageDiagComponent::filter(
   cv::Mat no_return_mask_binarized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
 
-  static uint blockage_frame_count = 0;
-  blockage_frame_count++;
+  blockage_frame_count_++;
   if (blockage_buffering_interval_ != 0) {
     no_return_mask_binarized = no_return_mask / 255;
-    if (blockage_frame_count == blockage_buffering_interval_) {
+    if (blockage_frame_count_ == blockage_buffering_interval_) {
       no_return_mask_buffer.push_back(no_return_mask_binarized);
-      blockage_frame_count = 0;
+      blockage_frame_count_ = 0;
     }
     for (const auto & binary_mask : no_return_mask_buffer) {
       time_series_blockage_mask += binary_mask;
@@ -262,14 +261,15 @@ void BlockageDiagComponent::filter(
   cv::Mat ground_depthmap = lidar_depth_map_8u(
     cv::Rect(0, horizontal_ring_id_, ideal_horizontal_bins, vertical_bins - horizontal_ring_id_));
   cv::Mat sky_blank(horizontal_ring_id_, ideal_horizontal_bins, CV_8UC1, cv::Scalar(0));
+  cv::Mat ground_blank(
+    vertical_bins - horizontal_ring_id_, ideal_horizontal_bins, CV_8UC1, cv::Scalar(0));
   cv::Mat single_dust_img(
     cv::Size(lidar_depth_map_8u.rows, lidar_depth_map_8u.cols), CV_8UC1, cv::Scalar(0));
   cv::Mat single_dust_ground_img = ground_depthmap.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
-  int erode_kernel = 2;
   cv::Mat sobel_element = getStructuringElement(
-    cv::MORPH_RECT, cv::Size(erode_kernel + 1, 2 * erode_kernel + 1),
-    cv::Point(erode_kernel, erode_kernel));
+    cv::MORPH_RECT, cv::Size(dust_kernel_ + 1, 2 * dust_kernel_ + 1),
+    cv::Point(dust_kernel_, dust_kernel_));
   cv::dilate(single_dust_ground_img, single_dust_ground_img, sobel_element);
   cv::erode(single_dust_ground_img, single_dust_ground_img, sobel_element);
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
