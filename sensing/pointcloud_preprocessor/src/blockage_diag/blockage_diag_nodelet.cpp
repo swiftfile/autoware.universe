@@ -47,8 +47,10 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     std::string(this->get_namespace()) + ": blockage_validation", this,
     &BlockageDiagComponent::onBlockageChecker);
   updater_.setPeriod(0.1);
-  dust_result_img_pub =
-    image_transport::create_publisher(this, "blockage_diag/debug/dust_mask_image");
+  single_frame_dust_mask_pub =
+    image_transport::create_publisher(this, "blockage_diag/debug/single_frame_dust_mask_image");
+  multi_frame_dust_mask_pub =
+    image_transport::create_publisher(this, "blockage_diag/debug/multi_frame_dust_mask_image");
   lidar_depth_map_pub_ =
     image_transport::create_publisher(this, "blockage_diag/debug/lidar_depth_map");
   blockage_mask_pub_ =
@@ -256,13 +258,12 @@ void BlockageDiagComponent::filter(
   } else {
     sky_blockage_count_ = 0;
   }
- //dust
+  // dust
   cv::Mat ground_depthmap = lidar_depth_map_8u(
     cv::Rect(0, horizontal_ring_id_, ideal_horizontal_bins, vertical_bins - horizontal_ring_id_));
   cv::Mat sky_blank(horizontal_ring_id_, ideal_horizontal_bins, CV_8UC1, cv::Scalar(0));
   cv::Mat single_dust_img(
     cv::Size(lidar_depth_map_8u.rows, lidar_depth_map_8u.cols), CV_8UC1, cv::Scalar(0));
-  single_dust_img = lidar_depth_map_8u.clone();
   cv::Mat single_dust_ground_img = ground_depthmap.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   int erode_kernel = 2;
@@ -276,9 +277,34 @@ void BlockageDiagComponent::filter(
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::Mat ground_mask(cv::Size(ideal_horizontal_bins, horizontal_ring_id_), CV_8UC1);
   cv::vconcat(sky_blank, single_dust_ground_img, single_dust_img);
-  cv::Mat single_shot_sobel_result_img(
+  static boost::circular_buffer<cv::Mat> dust_mask_buffer(dust_buffer_frames_);
+  cv::Mat binarized_dust_mask_(
+    cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
+  cv::Mat multi_frame_dust_mask(
+    cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
+  cv::Mat multi_frame_dust_result(
+    cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
+  dust_frame_count_++;
+  if (dust_buffering_interval_ != 0) {
+    binarized_dust_mask_ = single_dust_img / 255;
+    if (dust_frame_count_ == dust_buffering_interval_) {
+      dust_mask_buffer.push_back(binarized_dust_mask_);
+      dust_frame_count_ = 0;
+    }
+    for (const auto & binarized_dust_mask : dust_mask_buffer) {
+      multi_frame_dust_mask += binarized_dust_mask;
+    }
+    cv::inRange(
+      multi_frame_dust_mask, dust_mask_buffer.size() - 1, dust_mask_buffer.size(),
+      multi_frame_dust_result);
+  } else {
+    binarized_dust_mask_.copyTo(multi_frame_dust_result);
+  }
+  cv::Mat single_frame_dust_colorized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC3, cv::Scalar(0, 0, 0));
-  cv::applyColorMap(single_dust_img, single_shot_sobel_result_img, cv::COLORMAP_JET);
+  cv::applyColorMap(single_dust_img, single_frame_dust_colorized, cv::COLORMAP_JET);
+  cv::Mat multi_frame_dust_colorized;
+  cv::applyColorMap(multi_frame_dust_result, multi_frame_dust_colorized, cv::COLORMAP_JET);
   cv::Mat blockage_dust_merged_img(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat blockage_dust_merged_mask(
@@ -290,12 +316,13 @@ void BlockageDiagComponent::filter(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC3, cv::Scalar(255, 0, 0));
   cv::bitwise_and(time_series_blockage_result, single_dust_img, blockage_dust_merged_mask);
   red_plane.copyTo(blockage_dust_merged_img, time_series_blockage_result);  // red_plane: blockage
-  yellow_plane.copyTo(blockage_dust_merged_img, single_dust_img);           // yellow : dust
-  blue_plane.copyTo(blockage_dust_merged_img, blockage_dust_merged_mask);   // blue : both
-
-  sensor_msgs::msg::Image::SharedPtr dust_result_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", single_shot_sobel_result_img).toImageMsg();
-  dust_result_img_pub.publish(dust_result_msg);
+  yellow_plane.copyTo(blockage_dust_merged_img, multi_frame_dust_result);   // yellow : dust
+  sensor_msgs::msg::Image::SharedPtr single_frame_dust_mask_msg =
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", single_frame_dust_colorized).toImageMsg();
+  single_frame_dust_mask_pub.publish(single_frame_dust_mask_msg);
+  sensor_msgs::msg::Image::SharedPtr multi_frame_dust_mask_msg =
+    cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", multi_frame_dust_colorized).toImageMsg();
+  multi_frame_dust_mask_pub.publish(multi_frame_dust_mask_msg);
 
   cv::Mat time_series_sobel_result_color_img(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC3, cv::Scalar(0));
