@@ -55,6 +55,8 @@ protected:
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr ground_blockage_ratio_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr sky_blockage_ratio_pub_;
   rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr processing_time_pub_;
+  rclcpp::Publisher<tier4_debug_msgs::msg::StringStamped>::SharedPtr blockage_type_pub_;
+  rclcpp::Publisher<tier4_debug_msgs::msg::Float32Stamped>::SharedPtr blockage_ratio_pub_;
 
 private:
   void onBlockageChecker(DiagnosticStatusWrapper & stat);
