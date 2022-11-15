@@ -267,11 +267,11 @@ void BlockageDiagComponent::filter(
     cv::Size(lidar_depth_map_8u.rows, lidar_depth_map_8u.cols), CV_8UC1, cv::Scalar(0));
   cv::Mat single_dust_ground_img = ground_depthmap.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
-  cv::Mat sobel_element = getStructuringElement(
+  cv::Mat dust_element = getStructuringElement(
     cv::MORPH_RECT, cv::Size(dust_kernel_ + 1, 2 * dust_kernel_ + 1),
     cv::Point(dust_kernel_, dust_kernel_));
-  cv::dilate(single_dust_ground_img, single_dust_ground_img, sobel_element);
-  cv::erode(single_dust_ground_img, single_dust_ground_img, sobel_element);
+  cv::dilate(single_dust_ground_img, single_dust_ground_img, dust_element);
+  cv::erode(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::GaussianBlur(single_dust_ground_img, single_dust_ground_img, cv::Size(5, 5), 0);
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
