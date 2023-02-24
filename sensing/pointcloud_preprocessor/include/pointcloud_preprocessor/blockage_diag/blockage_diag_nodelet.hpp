@@ -77,7 +77,7 @@ private:
   uint blockage_count_threshold_;
   std::string lidar_model_;
   uint blockage_buffer_frames_ = 100;
-  uint blockage_buffering_interval_ = 1;
+  uint blockage_buffer_interval_ = 1;
   int dust_kernel_ = 2;
   int dust_buffer_frames_ = 200;
   int dust_buffering_interval_ = 1;

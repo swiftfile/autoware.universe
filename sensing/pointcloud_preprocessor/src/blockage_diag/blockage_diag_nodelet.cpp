@@ -40,6 +40,10 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     lidar_model_ = static_cast<std::string>(declare_parameter("model", "Pandar40P"));
     blockage_count_threshold_ =
       static_cast<uint>(declare_parameter("blockage_count_threshold", 50));
+    blockage_buffer_frames_ =
+      static_cast<uint>(declare_parameter("blockage_buffer_frames", 100));
+    blockage_buffer_interval_ =
+      static_cast<uint>(declare_parameter("blockage_buffer_interval_", 100));
   }
 
   updater_.setHardwareID("blockage_diag");
@@ -66,7 +70,6 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     "blockage_diag/debug/blockage_type", rclcpp::SensorDataQoS());
   blockage_ratio_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/blockage_ratio", rclcpp::SensorDataQoS());
-
   processing_time_pub_ = create_publisher<tier4_debug_msgs::msg::Float32Stamped>(
     "blockage_diag/debug/processing_time", rclcpp::SensorDataQoS());
 
@@ -205,9 +208,9 @@ void BlockageDiagComponent::filter(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
 
   blockage_frame_count_++;
-  if (blockage_buffering_interval_ != 0) {
+  if (blockage_buffer_interval_ != 0) {
     no_return_mask_binarized = no_return_mask / 255;
-    if (blockage_frame_count_ == blockage_buffering_interval_) {
+    if (blockage_frame_count_ == blockage_buffer_interval_) {
       no_return_mask_buffer.push_back(no_return_mask_binarized);
       blockage_frame_count_ = 0;
     }
