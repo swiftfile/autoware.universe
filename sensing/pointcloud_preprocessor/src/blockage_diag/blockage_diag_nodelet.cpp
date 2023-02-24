@@ -90,7 +90,6 @@ void BlockageDiagComponent::onBlockageChecker(DiagnosticStatusWrapper & stat)
   stat.add(
     "sky_blockage_range_deg", "[" + std::to_string(sky_blockage_range_deg_[0]) + "," +
                                 std::to_string(sky_blockage_range_deg_[1]) + "]");
-
   // TODO(badai-nguyen): consider sky_blockage_ratio_ for DiagnosticsStatus." [todo]
 
   auto level = DiagnosticStatus::OK;
@@ -183,9 +182,6 @@ void BlockageDiagComponent::filter(
               UINT16_MAX - distance_coefficient * p.distance;
           }
         }
-        //        else {
-        //          RCLCPP_WARN_STREAM(
-        //            get_logger(), "p.ring is " << p.ring << "p.azimuth is " << p.azimuth / 100);
       }
     }
   }
@@ -358,6 +354,7 @@ void BlockageDiagComponent::filter(
   ground_blockage_ratio_msg.data = ground_blockage_ratio_;
   ground_blockage_ratio_msg.stamp = now();
   ground_blockage_ratio_pub_->publish(ground_blockage_ratio_msg);
+
   tier4_debug_msgs::msg::Float32Stamped sky_blockage_ratio_msg;
   sky_blockage_ratio_msg.data = sky_blockage_ratio_;
   sky_blockage_ratio_msg.stamp = now();
@@ -396,7 +393,6 @@ void BlockageDiagComponent::filter(
   processing_time_msg.stamp = now();
   processing_time_pub_->publish(processing_time_msg);
 }
-
 rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
   const std::vector<rclcpp::Parameter> & p)
 {
@@ -423,6 +419,12 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
       get_logger(), " Setting new angle_range to: [%f , %f].", angle_range_deg_[0],
       angle_range_deg_[1]);
   }
+  if (get_param(p, "buffering_frames", buffering_frames_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new buffering_frames to: %d.", buffering_frames_);
+  }
+  if (get_param(p, "buffering_interval", buffering_interval_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new buffering_interval to: %d.", buffering_interval_);
+  }
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
   result.reason = "success";
@@ -431,5 +433,4 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
 }  // namespace pointcloud_preprocessor
 
 #include <rclcpp_components/register_node_macro.hpp>
-
 RCLCPP_COMPONENTS_REGISTER_NODE(pointcloud_preprocessor::BlockageDiagComponent)
