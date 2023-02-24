@@ -419,11 +419,11 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
       get_logger(), " Setting new angle_range to: [%f , %f].", angle_range_deg_[0],
       angle_range_deg_[1]);
   }
-  if (get_param(p, "buffering_frames", buffering_frames_)) {
-    RCLCPP_DEBUG(get_logger(), "Setting new buffering_frames to: %d.", buffering_frames_);
+  if (get_param(p, "blockage_buffer_frames_", blockage_buffer_frames_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new buffering_frames to: %d.", blockage_buffer_frames_);
   }
-  if (get_param(p, "buffering_interval", buffering_interval_)) {
-    RCLCPP_DEBUG(get_logger(), "Setting new buffering_interval to: %d.", buffering_interval_);
+  if (get_param(p, "blockage_buffer_interval_", blockage_buffer_interval_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new blockage buffer interval to: %d.", blockage_buffer_interval_);
   }
   rcl_interfaces::msg::SetParametersResult result;
   result.successful = true;
