@@ -124,20 +124,20 @@ void BlockageDiagComponent::filter(
 {
   auto start = std::chrono::system_clock::now();
   std::scoped_lock lock(mutex_);
-  uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
-  int vertical_bins = vertical_bins_;
-  int ideal_horizontal_bins;
-  float distance_coeffients;
-  float horizontal_resolution_;
+  //  uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
+  uint vertical_bins = vertical_bins_;
+  uint ideal_horizontal_bins;
+  float distance_coefficient = 327.67f;
+  float horizontal_resolution_angle = 0.4f;
   if (lidar_model_ == "Pandar40P") {
-    distance_coeffients = 327.67f;
-    horizontal_resolution_ = 0.4f;
+    distance_coefficient = 327.67f;
+    horizontal_resolution_angle = 0.4f;
   } else if (lidar_model_ == "PandarQT") {
-    distance_coeffients = 3276.75f;
-    horizontal_resolution_ = 0.6f;
+    distance_coefficient = 3276.75f;
+    horizontal_resolution_angle = 0.6f;
   }
   ideal_horizontal_bins =
-    static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]) / horizontal_resolution_);
+    static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]) / horizontal_resolution_angle);
   pcl::PointCloud<PointXYZIRADRT>::Ptr pcl_input(new pcl::PointCloud<PointXYZIRADRT>);
   pcl::fromROSMsg(*input, *pcl_input);
   std::vector<float> horizontal_bin_reference(ideal_horizontal_bins);
@@ -161,23 +161,23 @@ void BlockageDiagComponent::filter(
     sky_blockage_range_deg_[0] = angle_range_deg_[0];
     sky_blockage_range_deg_[1] = angle_range_deg_[1];
   } else {
-    for (int i = 0; i < ideal_horizontal_bins; ++i) {
-      horizontal_bin_reference.at(i) = angle_range_deg_[0] + i * horizontal_resolution_;
+    for (uint i = 0; i < ideal_horizontal_bins; ++i) {
+      horizontal_bin_reference.at(i) = angle_range_deg_[0] + i * horizontal_resolution_angle;
     }
     for (const auto p : pcl_input->points) {
-      for (int horizontal_bin = 0;
-           horizontal_bin < static_cast<int>(horizontal_bin_reference.size()); horizontal_bin++) {
+      for (uint horizontal_bin = 0;
+           horizontal_bin < static_cast<uint>(horizontal_bin_reference.size()); horizontal_bin++) {
         if (
           (p.azimuth / 100 >
-           (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_ / 2)) &&
+           (horizontal_bin_reference.at(horizontal_bin) - horizontal_resolution_angle / 2)) &&
           (p.azimuth / 100 <=
-           (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_ / 2))) {
+           (horizontal_bin_reference.at(horizontal_bin) + horizontal_resolution_angle / 2))) {
           if (lidar_model_ == "Pandar40P") {
             full_size_depth_map.at<uint16_t>(p.ring, horizontal_bin) =
-              UINT16_MAX - distance_coeffients * p.distance;
+              UINT16_MAX - distance_coefficient * p.distance;
           } else if (lidar_model_ == "PandarQT") {
             full_size_depth_map.at<uint16_t>(vertical_bins - p.ring - 1, horizontal_bin) =
-              UINT16_MAX - distance_coeffients * p.distance;
+              UINT16_MAX - distance_coefficient * p.distance;
           }
         }
         //        else {
@@ -375,7 +375,7 @@ void BlockageDiagComponent::filter(
       blockage_ratio_msg.data = blockage_ratio;
     } else {
       blockage_type_msg.data = "dust";
-      sky_blockage_ratio_msg.data =dust_ratio;
+      sky_blockage_ratio_msg.data = dust_ratio;
     }
   }
 
