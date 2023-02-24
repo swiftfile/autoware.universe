@@ -71,7 +71,7 @@ private:
   std::vector<float> ground_blockage_range_deg_ = {0.0f, 0.0f};
   std::vector<float> sky_blockage_range_deg_ = {0.0f, 0.0f};
   int blockage_kernel_ = 10;
-  int blockage_frame_count_ = 0;
+  uint blockage_frame_count_ = 0;
   uint ground_blockage_count_ = 0;
   uint sky_blockage_count_ = 0;
   uint blockage_count_threshold_;
