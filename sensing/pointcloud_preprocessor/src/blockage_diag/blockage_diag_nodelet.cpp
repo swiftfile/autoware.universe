@@ -124,11 +124,10 @@ void BlockageDiagComponent::filter(
 {
   auto start = std::chrono::system_clock::now();
   std::scoped_lock lock(mutex_);
-  uint horizontal_bins = static_cast<uint>((angle_range_deg_[1] - angle_range_deg_[0]));
   int vertical_bins = vertical_bins_;
   int ideal_horizontal_bins;
-  float distance_coeffients;
-  float horizontal_resolution_;
+  float distance_coeffients = 327.67f;
+  float horizontal_resolution_ = 0.4f;
   if (lidar_model_ == "Pandar40P") {
     distance_coeffients = 327.67f;
     horizontal_resolution_ = 0.4f;
@@ -375,7 +374,7 @@ void BlockageDiagComponent::filter(
       blockage_ratio_msg.data = blockage_ratio;
     } else {
       blockage_type_msg.data = "dust";
-      sky_blockage_ratio_msg.data =dust_ratio;
+      sky_blockage_ratio_msg.data = dust_ratio;
     }
   }
 
