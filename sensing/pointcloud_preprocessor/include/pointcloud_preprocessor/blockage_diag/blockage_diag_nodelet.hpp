@@ -78,16 +78,17 @@ private:
   std::string lidar_model_;
   uint blockage_buffer_frames_ = 100;
   uint blockage_buffering_interval_ = 1;
-  int dust_kernel_ = 2;
-  int dust_buffer_frames_ = 200;
+  int dust_kernel_size_ = 25;  //int dust_kernel_size_ = 2;
+  int dust_gaussian_size_ = 5; //int dust_gaussian_size_ = 5;
+  int dust_buffer_frames_ = 10;
   int dust_buffering_interval_ = 1;
   int dust_frame_count_ = 0;
 
-public:
-  PCL_MAKE_ALIGNED_OPERATOR_NEW
-  explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);
-};
+  public:
+    PCL_MAKE_ALIGNED_OPERATOR_NEW
+    explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);
+  };
 
-}  // namespace pointcloud_preprocessor
+  }  // namespace pointcloud_preprocessor
 
 #endif  // POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_NODELET_HPP_

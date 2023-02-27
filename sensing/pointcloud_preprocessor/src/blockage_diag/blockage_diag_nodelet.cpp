@@ -40,6 +40,8 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     lidar_model_ = static_cast<std::string>(declare_parameter("model", "Pandar40P"));
     blockage_count_threshold_ =
       static_cast<uint>(declare_parameter("blockage_count_threshold", 50));
+//    dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size_", 2));
+//    dust_gaussian_size_ = static_cast<int>(declare_parameter("dust_gaussian_size_", 5));
   }
 
   updater_.setHardwareID("blockage_diag");
@@ -267,12 +269,14 @@ void BlockageDiagComponent::filter(
   cv::Mat single_dust_ground_img = ground_depthmap.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::Mat dust_element = getStructuringElement(
-    cv::MORPH_RECT, cv::Size(dust_kernel_ + 1, 2 * dust_kernel_ + 1),
-    cv::Point(dust_kernel_, dust_kernel_));
+    cv::MORPH_RECT, cv::Size(dust_kernel_size_ + 1, 2 * dust_kernel_size_ + 1),
+    cv::Point(dust_kernel_size_, dust_kernel_size_));
   cv::dilate(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::erode(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
-  cv::GaussianBlur(single_dust_ground_img, single_dust_ground_img, cv::Size(5, 5), 0);
+  cv::GaussianBlur(
+    single_dust_ground_img, single_dust_ground_img,
+    cv::Size(dust_gaussian_size_, dust_gaussian_size_), 0);
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::Mat ground_mask(cv::Size(ideal_horizontal_bins, horizontal_ring_id_), CV_8UC1);
   cv::vconcat(sky_blank, single_dust_ground_img, single_dust_img);
@@ -411,6 +415,13 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
     RCLCPP_DEBUG(
       get_logger(), "Setting new blockage_count_threshold to: %d.", blockage_count_threshold_);
   }
+//  if (get_param(p, "dust_gaussian_size_", dust_gaussian_size_)) {
+//    RCLCPP_DEBUG(get_logger(), "Setting new dust_gaussian_size_ to: %d.", dust_gaussian_size_);
+//  }
+//  if (get_param(p, "dust_kernel_size_", dust_kernel_size_)) {
+//    RCLCPP_DEBUG(get_logger(), "Setting new dust_kernel_size_ to: %d.", dust_kernel_size_);
+//  }
+
   if (get_param(p, "model", lidar_model_)) {
     RCLCPP_DEBUG(get_logger(), "Setting new lidar model to: %s. ", lidar_model_.c_str());
   }
