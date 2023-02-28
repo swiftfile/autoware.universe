@@ -259,14 +259,14 @@ void BlockageDiagComponent::filter(
     sky_blockage_count_ = 0;
   }
   // dust
-  cv::Mat ground_depthmap = lidar_depth_map_8u(
+  cv::Mat ground_depth_map = lidar_depth_map_8u(
     cv::Rect(0, horizontal_ring_id_, ideal_horizontal_bins, vertical_bins - horizontal_ring_id_));
   cv::Mat sky_blank(horizontal_ring_id_, ideal_horizontal_bins, CV_8UC1, cv::Scalar(0));
   cv::Mat ground_blank(
     vertical_bins - horizontal_ring_id_, ideal_horizontal_bins, CV_8UC1, cv::Scalar(0));
   cv::Mat single_dust_img(
     cv::Size(lidar_depth_map_8u.rows, lidar_depth_map_8u.cols), CV_8UC1, cv::Scalar(0));
-  cv::Mat single_dust_ground_img = ground_depthmap.clone();
+  cv::Mat single_dust_ground_img = ground_depth_map.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::Mat dust_element = getStructuringElement(
     cv::MORPH_RECT, cv::Size(dust_kernel_size_ + 1, 2 * dust_kernel_size_ + 1),
