@@ -40,8 +40,7 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     lidar_model_ = static_cast<std::string>(declare_parameter("model", "Pandar40P"));
     blockage_count_threshold_ =
       static_cast<uint>(declare_parameter("blockage_count_threshold", 50));
-//    dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size_", 2));
-//    dust_gaussian_size_ = static_cast<int>(declare_parameter("dust_gaussian_size_", 5));
+    dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size_", 25));
   }
 
   updater_.setHardwareID("blockage_diag");
@@ -181,9 +180,6 @@ void BlockageDiagComponent::filter(
               UINT16_MAX - distance_coeffients * p.distance;
           }
         }
-        //        else {
-        //          RCLCPP_WARN_STREAM(
-        //            get_logger(), "p.ring is " << p.ring << "p.azimuth is " << p.azimuth / 100);
       }
     }
   }
@@ -411,13 +407,9 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
     RCLCPP_DEBUG(
       get_logger(), "Setting new blockage_count_threshold to: %d.", blockage_count_threshold_);
   }
-//  if (get_param(p, "dust_gaussian_size_", dust_gaussian_size_)) {
-//    RCLCPP_DEBUG(get_logger(), "Setting new dust_gaussian_size_ to: %d.", dust_gaussian_size_);
-//  }
-//  if (get_param(p, "dust_kernel_size_", dust_kernel_size_)) {
-//    RCLCPP_DEBUG(get_logger(), "Setting new dust_kernel_size_ to: %d.", dust_kernel_size_);
-//  }
-
+  if (get_param(p, "dust_kernel_size_", dust_kernel_size_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new dust_kernel_size_ to: %d.", dust_kernel_size_);
+  }
   if (get_param(p, "model", lidar_model_)) {
     RCLCPP_DEBUG(get_logger(), "Setting new lidar model to: %s. ", lidar_model_.c_str());
   }
