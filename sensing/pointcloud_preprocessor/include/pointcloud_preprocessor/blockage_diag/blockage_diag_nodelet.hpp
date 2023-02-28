@@ -79,7 +79,6 @@ private:
   uint blockage_buffer_frames_ = 100;
   uint blockage_buffering_interval_ = 1;
   int dust_kernel_size_ = 25;  //int dust_kernel_size_ = 2;
-  int dust_gaussian_size_ = 5; //int dust_gaussian_size_ = 5;
   int dust_buffer_frames_ = 10;
   int dust_buffering_interval_ = 1;
   int dust_frame_count_ = 0;

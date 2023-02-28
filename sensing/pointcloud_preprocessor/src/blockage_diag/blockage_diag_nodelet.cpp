@@ -273,11 +273,7 @@ void BlockageDiagComponent::filter(
     cv::Point(dust_kernel_size_, dust_kernel_size_));
   cv::dilate(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::erode(single_dust_ground_img, single_dust_ground_img, dust_element);
-  cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
-  cv::GaussianBlur(
-    single_dust_ground_img, single_dust_ground_img,
-    cv::Size(dust_gaussian_size_, dust_gaussian_size_), 0);
-  cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
+  cv::inRange(single_dust_ground_img, 254, 255, single_dust_ground_img);
   cv::Mat ground_mask(cv::Size(ideal_horizontal_bins, horizontal_ring_id_), CV_8UC1);
   cv::vconcat(sky_blank, single_dust_ground_img, single_dust_img);
   static boost::circular_buffer<cv::Mat> dust_mask_buffer(dust_buffer_frames_);
