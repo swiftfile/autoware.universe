@@ -43,7 +43,7 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     blockage_buffering_frames_ =
       static_cast<int>(declare_parameter("blockage_buffering_frames", 100));
     blockage_buffering_interval_ =
-      static_cast<int>(declare_parameter("blockage_buffering_interval", 1));
+      static_cast<int>(declare_parameter("blockage_buffering_interval", 5));
     dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size", 2));
     dust_buffering_frames_ = static_cast<int>(declare_parameter("dust_buffering_frames", 10));
     dust_buffering_interval_ = static_cast<int>(declare_parameter("dust_buffering_interval", 1));
@@ -62,6 +62,10 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     image_transport::create_publisher(this, "blockage_diag/debug/lidar_depth_map");
   blockage_mask_pub_ =
     image_transport::create_publisher(this, "blockage_diag/debug/blockage_mask_image");
+//  ground_lidar_image_pub_ =
+//    image_transport::create_publisher(this, "blockage_diag/debug/ground_image");
+//  erode_image_pub_ = image_transport::create_publisher(this, "blockage_diag/debug/erode_image");
+//  dilate_image_pub_ = image_transport::create_publisher(this, "blockage_diag/debug/dilate_image");
   blockage_dust_merged_pub =
     image_transport::create_publisher(this, "blockage_diag/debug/blockage_dust_merged_image");
 

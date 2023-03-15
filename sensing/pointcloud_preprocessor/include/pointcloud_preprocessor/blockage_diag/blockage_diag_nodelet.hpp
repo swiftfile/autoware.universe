@@ -83,11 +83,11 @@ private:
   int dust_buffering_interval_;
   int dust_frame_count_ = 0;
 
-  public:
-    PCL_MAKE_ALIGNED_OPERATOR_NEW
-    explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);
-  };
+public:
+  PCL_MAKE_ALIGNED_OPERATOR_NEW
+  explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);
+};
 
-  }  // namespace pointcloud_preprocessor
+}  // namespace pointcloud_preprocessor
 
 #endif  // POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_NODELET_HPP_
