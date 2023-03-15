@@ -199,7 +199,7 @@ void BlockageDiagComponent::filter(
     cv::Point(blockage_kernel_, blockage_kernel_));
   cv::erode(no_return_mask, erosion_dst, element);
   cv::dilate(erosion_dst, no_return_mask, element);
-  static boost::circular_buffer<cv::Mat> no_return_mask_buffer(blockage_buffer_frames_);
+  static boost::circular_buffer<cv::Mat> no_return_mask_buffer(blockage_buffering_frames_);
   cv::Mat time_series_blockage_result(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat time_series_blockage_mask(
@@ -271,14 +271,14 @@ void BlockageDiagComponent::filter(
   cv::Mat single_dust_ground_img = ground_depth_map.clone();
   cv::inRange(single_dust_ground_img, 0, 1, single_dust_ground_img);
   cv::Mat dust_element = getStructuringElement(
-    cv::MORPH_RECT, cv::Size(dust_kernel_size_ + 1, 2 * dust_kernel_size_ + 1),
-    cv::Point(dust_kernel_size_, dust_kernel_size_));
+    cv::MORPH_RECT, cv::Size(2 * dust_kernel_size_ + 1, 2 * dust_kernel_size_ + 1),
+    cv::Point(-1, -1));
   cv::dilate(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::erode(single_dust_ground_img, single_dust_ground_img, dust_element);
   cv::inRange(single_dust_ground_img, 254, 255, single_dust_ground_img);
   cv::Mat ground_mask(cv::Size(ideal_horizontal_bins, horizontal_ring_id_), CV_8UC1);
   cv::vconcat(sky_blank, single_dust_ground_img, single_dust_img);
-  static boost::circular_buffer<cv::Mat> dust_mask_buffer(dust_buffer_frames_);
+  static boost::circular_buffer<cv::Mat> dust_mask_buffer(dust_buffering_frames_);
   cv::Mat binarized_dust_mask_(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   cv::Mat multi_frame_dust_mask(
@@ -286,7 +286,10 @@ void BlockageDiagComponent::filter(
   cv::Mat multi_frame_dust_result(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC1, cv::Scalar(0));
   dust_frame_count_++;
-  if (dust_buffering_interval_ != 0) {
+  if (dust_buffering_interval_ == 0) {
+    single_dust_img.copyTo(multi_frame_dust_result);
+    dust_frame_count_ = 0;
+  } else {
     binarized_dust_mask_ = single_dust_img / 255;
     if (dust_frame_count_ == dust_buffering_interval_) {
       dust_mask_buffer.push_back(binarized_dust_mask_);
