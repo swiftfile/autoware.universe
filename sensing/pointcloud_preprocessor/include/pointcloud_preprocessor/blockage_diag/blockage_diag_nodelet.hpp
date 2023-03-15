@@ -76,11 +76,11 @@ private:
   uint sky_blockage_count_ = 0;
   uint blockage_count_threshold_;
   std::string lidar_model_;
-  uint blockage_buffer_frames_ = 100;
-  uint blockage_buffering_interval_ = 1;
-  int dust_kernel_size_ = 25;  //int dust_kernel_size_ = 2;
-  int dust_buffer_frames_ = 10;
-  int dust_buffering_interval_ = 1;
+  uint blockage_buffering_frames_;
+  uint blockage_buffering_interval_;
+  int dust_kernel_size_;
+  int dust_buffering_frames_;
+  int dust_buffering_interval_;
   int dust_frame_count_ = 0;
 
   public:

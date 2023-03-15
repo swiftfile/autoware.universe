@@ -40,7 +40,13 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
     lidar_model_ = static_cast<std::string>(declare_parameter("model", "Pandar40P"));
     blockage_count_threshold_ =
       static_cast<uint>(declare_parameter("blockage_count_threshold", 50));
-    dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size_", 25));
+    blockage_buffering_frames_ =
+      static_cast<int>(declare_parameter("blockage_buffering_frames", 100));
+    blockage_buffering_interval_ =
+      static_cast<int>(declare_parameter("blockage_buffering_interval", 1));
+    dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size", 2));
+    dust_buffering_frames_ = static_cast<int>(declare_parameter("dust_buffering_frames", 10));
+    dust_buffering_interval_ = static_cast<int>(declare_parameter("dust_buffering_interval", 1));
   }
 
   updater_.setHardwareID("blockage_diag");
@@ -292,8 +298,6 @@ void BlockageDiagComponent::filter(
     cv::inRange(
       multi_frame_dust_mask, dust_mask_buffer.size() - 1, dust_mask_buffer.size(),
       multi_frame_dust_result);
-  } else {
-    binarized_dust_mask_.copyTo(multi_frame_dust_result);
   }
   cv::Mat single_frame_dust_colorized(
     cv::Size(ideal_horizontal_bins, vertical_bins), CV_8UC3, cv::Scalar(0, 0, 0));
@@ -407,8 +411,19 @@ rcl_interfaces::msg::SetParametersResult BlockageDiagComponent::paramCallback(
     RCLCPP_DEBUG(
       get_logger(), "Setting new blockage_count_threshold to: %d.", blockage_count_threshold_);
   }
-  if (get_param(p, "dust_kernel_size_", dust_kernel_size_)) {
+  if (get_param(p, "dust_kernel_size", dust_kernel_size_)) {
     RCLCPP_DEBUG(get_logger(), "Setting new dust_kernel_size_ to: %d.", dust_kernel_size_);
+  }
+  if (get_param(p, "dust_buffering_frames", dust_buffering_frames_)) {
+    RCLCPP_DEBUG(get_logger(), "Setting new dust_buffering_frames_ to: %d.", dust_buffering_frames_);
+    // note:NOT affects to actual variable.
+    // if you want change this param/variable, change the parameter called at launch this
+    // node(aip_launcher).
+  }
+  if (get_param(p, "dust_buffering_interval", dust_buffering_interval_)) {
+    RCLCPP_DEBUG(
+      get_logger(), "Setting new dust_buffering_interval_ to: %d.", dust_buffering_interval_);
+    dust_frame_count_ = 0;
   }
   if (get_param(p, "model", lidar_model_)) {
     RCLCPP_DEBUG(get_logger(), "Setting new lidar model to: %s. ", lidar_model_.c_str());
