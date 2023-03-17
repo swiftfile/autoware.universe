@@ -249,6 +249,9 @@ bool convertToAutowareTrajectory(
     p.longitudinal_velocity_mps =
       static_cast<decltype(p.longitudinal_velocity_mps)>(input.vx.at(i));
     output.points.push_back(p);
+    if (output.points.size() == output.points.max_size()) {
+      break;
+    }
   }
   return true;
 }
@@ -405,8 +408,7 @@ void extendTrajectoryInYawDirection(
 
   // get terminal pose
   autoware_auto_planning_msgs::msg::Trajectory autoware_traj;
-  autoware::motion::control::mpc_lateral_controller::MPCUtils::convertToAutowareTrajectory(
-    traj, autoware_traj);
+  MPCUtils::convertToAutowareTrajectory(traj, autoware_traj);
   auto extended_pose = autoware_traj.points.back().pose;
 
   constexpr double extend_dist = 10.0;
