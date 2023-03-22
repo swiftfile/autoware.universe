@@ -88,8 +88,7 @@ void BlockageDiagComponent::onBlockageChecker(DiagnosticStatusWrapper & stat)
   stat.add(
     "sky_blockage_range_deg", "[" + std::to_string(sky_blockage_range_deg_[0]) + "," +
                                 std::to_string(sky_blockage_range_deg_[1]) + "]");
-  //TODO:stat,blockage
-  //  stat.add("ground_dust_ratio", std::to_string(dust));
+  stat.add("ground_dust_ratio", std::to_string(ground_dust_ratio_));
   // TODO(badai-nguyen): consider sky_blockage_ratio_ for DiagnosticsStatus." [todo]
 
   auto level = DiagnosticStatus::OK;
@@ -372,7 +371,7 @@ void BlockageDiagComponent::filter(
       sky_blockage_ratio_msg.data = dust_ratio;
     }
   }
-  //TODO:blockage_type,dust
+  // TODO:blockage_type,dust
   blockage_type_msg.stamp = now();
   blockage_ratio_msg.stamp = now();
   blockage_type_pub_->publish(blockage_type_msg);

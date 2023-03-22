@@ -67,6 +67,7 @@ private:
   float blockage_ratio_threshold_;
   float ground_blockage_ratio_ = -1.0f;
   float sky_blockage_ratio_ = -1.0f;
+  float ground_dust_ratio_ = -1.0f;
   std::vector<float> ground_blockage_range_deg_ = {0.0f, 0.0f};
   std::vector<float> sky_blockage_range_deg_ = {0.0f, 0.0f};
   int blockage_kernel_ = 10;
