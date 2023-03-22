@@ -372,6 +372,9 @@ void BlockageDiagComponent::filter(
       blockage_type_msg.data = "dust";
       sky_blockage_ratio_msg.data = dust_ratio;
     }
+    // TODO:blockage_type_msg.data = "blockage and dust";
+    //    blockage_ratio_msg.data = -1.0f;
+    ///
   }
   // TODO:blockage_type,dust
   blockage_type_msg.stamp = now();
