@@ -65,6 +65,7 @@ private:
   std::vector<double> angle_range_deg_;
   int horizontal_ring_id_ = 12;
   float blockage_ratio_threshold_;
+  float dust_ratio_threshold_;
   float ground_blockage_ratio_ = -1.0f;
   float sky_blockage_ratio_ = -1.0f;
   float ground_dust_ratio_ = -1.0f;

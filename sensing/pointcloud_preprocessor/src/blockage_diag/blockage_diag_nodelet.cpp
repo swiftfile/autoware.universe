@@ -43,6 +43,8 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
       static_cast<int>(declare_parameter("blockage_buffering_frames", 100));
     blockage_buffering_interval_ =
       static_cast<int>(declare_parameter("blockage_buffering_interval", 5));
+    dust_ratio_threshold_ =
+      static_cast<float>(declare_parameter("dust_ratio_threshold", 0.1));
     dust_kernel_size_ = static_cast<int>(declare_parameter("dust_kernel_size", 2));
     dust_buffering_frames_ = static_cast<int>(declare_parameter("dust_buffering_frames", 10));
     dust_buffering_interval_ = static_cast<int>(declare_parameter("dust_buffering_interval", 1));
