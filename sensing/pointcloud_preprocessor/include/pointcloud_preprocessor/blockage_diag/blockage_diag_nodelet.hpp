@@ -83,6 +83,7 @@ private:
   int dust_buffering_frames_;
   int dust_buffering_interval_;
   int dust_frame_count_ = 0;
+  uint dust_count_threshold_;
 
 public:
   PCL_MAKE_ALIGNED_OPERATOR_NEW
