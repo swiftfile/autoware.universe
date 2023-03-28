@@ -60,6 +60,7 @@ protected:
 
 private:
   void onBlockageChecker(DiagnosticStatusWrapper & stat);
+  void dustChecker(DiagnosticStatusWrapper & stat);
   Updater updater_{this};
   uint vertical_bins_;
   std::vector<double> angle_range_deg_;
@@ -82,8 +83,9 @@ private:
   int dust_kernel_size_;
   int dust_buffering_frames_;
   int dust_buffering_interval_;
-  int dust_frame_count_ = 0;
-  uint dust_count_threshold_;
+  int dust_buffering_frame_counter_ = 0;
+  int dust_count_threshold_;
+  int dust_frame_count_;
 
 public:
   PCL_MAKE_ALIGNED_OPERATOR_NEW
